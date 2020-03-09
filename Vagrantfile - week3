@@ -23,16 +23,8 @@ Vagrant.configure("2") do |config|
 	master.vm.network "private_network", ip: "10.0.1.10", virtualbox__intnet: "intnet2"
 	sshmaster(master)
 	sshslave(master)
-	hosts(master)
-	adduserslab1(master)
-	nfs(master)
-	nfsserver(master)
-	smbserver(master)
-	sshfs(master) #sshfs needs to be configured only on clients
-	webdav(master)
-
-#	bind9(master)
-#	ns1(master)
+	bind9(master)
+	ns1(master)
 #	x(master)
 #	nginx(master) #has to be manually started
   end
@@ -42,18 +34,9 @@ Vagrant.configure("2") do |config|
 	slave.vm.hostname ="lab2"
 	slave.vm.network "private_network", ip: "10.0.0.11", virtualbox__intnet: "intnet1"
 	sshslave(slave)
-	hosts(slave)
-	adduserslab2(slave)
-	nfs(slave)
-	nfsclient(slave)
-	smbclient(slave)
-	sshfs(slave) 
-	webdav(slave)
-
-
 #	apache(slave)
-#	bind9(slave)
-#	ns2(slave)
+	bind9(slave)
+	ns2(slave)
   end
 
     config.vm.define "lab3" do |slave|
@@ -66,8 +49,7 @@ Vagrant.configure("2") do |config|
   end
 
 config.vm.provision "shell", inline: <<-SHELL
-	apt-get update
-	apt-get install -y traceroute lynx cadaver elinks #avahi-daemon libnss-mdns 
+  apt-get install -y traceroute lynx #avahi-daemon libnss-mdns 
 SHELL
 
 config.ssh.insert_key = false
@@ -146,7 +128,7 @@ end
 	end
 	
 	
-	#WEEK3
+	#WEEK4
 	def ns1(machine)
 		machine.vm.provision "shell", inline: <<-SHELL
 		printf "%s\n" "" "127.0.0.1	ns1" | tee -a /etc/hosts
@@ -178,116 +160,4 @@ end
 	end
 	
 	
-	#WEEK4
-	def hosts(machine)
-	machine.vm.provision "shell", inline: <<-SHELL
-	echo "10.0.0.10	lab1" >> /etc/hosts
-	echo "10.0.0.11	lab2" >> /etc/hosts
-	SHELL
-	end
-	
-	def adduserslab1(machine)
-	machine.vm.provision "shell", inline: <<-SHELL
-	adduser testuser1 --uid 1001 --disabled-password --gecos ""
-	touch /home/testuser1/test.txt
-	echo ":)" >> /home/testuser1/test.txt
-	sudo echo "testuser1:testuser" | sudo chpasswd
-	adduser testuser2 --uid 1002 --disabled-password --gecos "" --no-create-home 
-	sudo echo "testuser2:testuser" | sudo chpasswd
-	chown testuser1:testuser1 -R /home/testuser1
-	chmod 700 -R /home/testuser1
-	SHELL
-	end
-	
-	def adduserslab2(machine)
-	machine.vm.provision "shell", inline: <<-SHELL
-	adduser testuser1 --uid 1001 --disabled-password --gecos "" --no-create-home 
-	sudo echo "testuser1:testuser" | sudo chpasswd
-	adduser testuser2 --uid 1002 --disabled-password --gecos "" --no-create-home 
-	sudo echo "testuser2:testuser" | sudo chpasswd
-	SHELL
-	end
-	
-	def nfs(machine)
-	machine.vm.provision "shell", inline: <<-SHELL
-	apt-get install -y nfs-kernel-server
-	SHELL
-	end
-	
-	def nfsserver(machine)
-	machine.vm.provision "shell", inline: <<-SHELL
-	printf "%s\n" "/home/testuser1 lab2(rw,no_subtree_check,sync)" | tee -a /etc/exports
-	echo "	portmap:ALL
-	lockd:ALL
-	mountd:ALL
-	rquotad:ALL
-	statd:ALL" >> /etc/hosts.deny
-	echo "	portmap: lab2
-	lockd: lab2
-	mountd: lab2
-	rquotad: lab2
-	statd: lab2" >> /etc/hosts.allow
-	exportfs -a
-	systemctl restart nfs-kernel-server
-	SHELL
-	end
-	
-	def nfsclient(machine)
-	machine.vm.provision "shell", inline: <<-SHELL
-	mkdir -p /home/testuser1
-	mount lab1:/home/testuser1 /home/testuser1
-	SHELL
-	end
-	
-	def smbserver(machine)
-	machine.vm.provision "shell", inline: <<-SHELL
-	apt-get install -y samba
-	cp /vagrant/smb.conf /etc/samba/
-	systemctl restart smbd nmbd
-	#REMEMBER TO
-	#sudo smbpasswd -a testuser1
-	SHELL
-	end
-	
-	def smbclient(machine)
-	machine.vm.provision "shell", inline: <<-SHELL
-	apt-get install -y cifs-utils
-	#mount -t cifs -o username=testuser1,password=testuser //lab1/testuser1 /home/testuser1/
-	SHELL
-	end
-	
-	
-	def sshfs(machine)
-	machine.vm.provision "shell", inline: <<-SHELL
-	mkdir -p /home/testuser1/mnt
-	chown testuser1:testuser1 -R /home/testuser1
-	chmod 700 -R /home/testuser1
-	apt-get install -y sshfs
-	#sudo su testuser1
-	#sshfs -o reconnect lab1:/home/testuser1 /home/testuser1/mnt
-
-	SHELL
-	end
-	
-	def webdav(machine)
-	machine.vm.provision "shell", inline: <<-SHELL
-	apt-get update
-	apt-get install -y apache2 apache2-utils
-	a2enmod dav*
-	service apache2 restart
-	a2enmod auth_digest
-	service apache2 restart
-	mkdir -p /var/www/WebDAV/files
-	touch /var/www/WebDAV/files/test
-	chown www-data:vagrant -R /var/www/WebDAV
-	chmod 770 -R /var/www/WebDAV
-	cp /vagrant/webdav.conf /etc/apache2/sites-available/000-default.conf
-	# htdigest -c /var/www/WebDAV/.digest testuser1 testuser1
-	# chown www-data:root /var/www/WebDAV/.digest
-	# chmod 700 /var/www/WebDAV/.digest
-	# service apache2 restart
-	SHELL
-	end
-	
-
 end
